@@ -2,12 +2,10 @@ import { CheckCircle2, CircleDashed } from "lucide-react";
 import type { AppStatus } from "../types/ui";
 
 const steps = [
-  "Crawl listings",
-  "Extract facts",
-  "Analyze floor plans",
-  "Compare apartments",
-  "Generate tour plan",
-  "Save evidence packet",
+  "Find which properties are worth touring",
+  "Choose the units to ask to see",
+  "Draft questions to email before touring",
+  "Flag options that do not meet your constraints",
 ];
 
 type ProgressTimelineProps = {

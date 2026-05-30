@@ -5,9 +5,8 @@ type SummaryCardsProps = {
 };
 
 const labels: Array<[keyof AnalyzeResponse["summary"], string]> = [
-  ["propertiesAnalyzed", "Properties"],
+  ["propertiesAnalyzed", "Apartments"],
   ["unitsFound", "Units found"],
-  ["floorPlansFound", "Floor plans"],
   ["missingInfoCount", "Missing details"],
   ["tourFirstCount", "Tour first"],
 ];

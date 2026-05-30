@@ -18,12 +18,40 @@ export type UserPreferences = {
   budgetMaxMonthly?: number;
   moveInBy?: string;
   bedrooms?: string[];
+  bathrooms?: string[];
+  apartmentTypes?: Array<"studio" | "1b" | "2b" | "3b" | "condo" | "townhouse">;
+  lifestylePreferences?: {
+    worksFromHome: boolean;
+    hostGuestsOften: boolean;
+  };
+  spacePreferences?: {
+    largerBedroom: boolean;
+    largerBathroom: boolean;
+    largerKitchen: boolean;
+    largerLivingRoom: boolean;
+    moreStorage: boolean;
+    betterWfhLayout: boolean;
+    outdoorSpace: boolean;
+    preferredOrientation?: string;
+  };
+  amenityPreferences?: {
+    grill: boolean;
+    pool: boolean;
+    gym: boolean;
+    coworking: boolean;
+    packageRoom: boolean;
+    dogWash: boolean;
+    evCharging: boolean;
+  };
   pet: {
     hasPet: boolean;
     type?: "dog" | "cat";
+    count?: number;
+    breed?: string;
     weightLb?: number;
   };
   parking: "required" | "nice_to_have" | "not_needed";
+  parkingPreference?: "covered" | "outdoor" | "either";
   worksFromHome: boolean;
   priorities: {
     cost: number;

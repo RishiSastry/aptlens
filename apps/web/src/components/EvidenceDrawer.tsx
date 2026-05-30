@@ -25,7 +25,7 @@ export function EvidenceDrawer({ unit, onClose }: EvidenceDrawerProps) {
       </div>
 
       <div className="drawer-section">
-        <h3>Why it ranked #{unit.rank}</h3>
+        <h3>Insights</h3>
         <ul>
           {unit.topReasons.map((reason) => (
             <li key={reason}>{reason}</li>
@@ -33,15 +33,8 @@ export function EvidenceDrawer({ unit, onClose }: EvidenceDrawerProps) {
         </ul>
       </div>
 
-      <div className="score-grid">
-        <span>Overall {unit.overallScore}</span>
-        <span>Cost {unit.scores.cost}</span>
-        <span>Pet {unit.scores.petFit}</span>
-        <span>WFH {unit.scores.wfhFit}</span>
-      </div>
-
       <div className="drawer-section">
-        <h3>Cost</h3>
+        <h3>Cost & unknowns</h3>
         <p>
           Known monthly total:{" "}
           <strong>{formatCurrency(unit.costBreakdown.knownMonthlyTotal)}</strong>
@@ -50,7 +43,7 @@ export function EvidenceDrawer({ unit, onClose }: EvidenceDrawerProps) {
       </div>
 
       <div className="drawer-section">
-        <h3>Risks</h3>
+        <h3>Tour checks</h3>
         <ul>
           {unit.risks.map((risk) => (
             <li key={risk}>{risk}</li>
