@@ -14,6 +14,8 @@ export type CrawledAsset = {
   url: string;
   type: "floor_plan_image" | "floor_plan_pdf" | "image" | "pdf" | "other";
   sourcePageUrl?: string;
+  /** Image alt text (e.g. "A1 - 1x1 Floor plan") — carries the unit identity for matching. */
+  label?: string;
 };
 
 /** Normalized crawl result for a single property, cached to fixtures/apify/<propertyId>.json. */
@@ -215,10 +217,11 @@ export async function crawlSite(rootUrl: string, propertyId: string): Promise<Pr
       const existing = assets.find((a) => a.url === asset.url);
       if (existing) {
         // The text crawler may have already added this URL as a generic "image".
-        // The scraper's classification is more specific — upgrade to it.
+        // The scraper's classification + alt label are more specific — carry both.
         if (asset.type === "floor_plan_image" || asset.type === "floor_plan_pdf") {
           existing.type = asset.type;
         }
+        if (asset.label && !existing.label) existing.label = asset.label;
       } else {
         seenAssets.add(asset.url);
         assets.push(asset);
@@ -285,7 +288,7 @@ async function pageFunction(context) {
   const counts = {};
   all.forEach((img) => { const s = srcOf(img); if (s) counts[s] = (counts[s] || 0) + 1; });
 
-  const planImages = new Set();
+  const planImages = new Map(); // src -> alt (alt carries the unit identity)
   const otherImages = new Set();
   all.forEach((img) => {
     const src = srcOf(img);
@@ -297,7 +300,7 @@ async function pageFunction(context) {
     const dup = (counts[src] || 0) >= 2;
     const isPlan =
       STRONG.test(src) || STRONG.test(alt) || UNIT.test(alt) || (onPlanPage && raster && (big || dup));
-    if (isPlan) planImages.add(src);
+    if (isPlan) planImages.set(src, alt);
     else otherImages.add(src);
   });
 
@@ -307,7 +310,12 @@ async function pageFunction(context) {
     if (/\\.pdf(\\?|$)|brochure/i.test(h)) pdfs.add(h);
   });
 
-  return { url: request.url, planImages: [...planImages], otherImages: [...otherImages], pdfs: [...pdfs] };
+  return {
+    url: request.url,
+    planImages: [...planImages].map(([url, alt]) => ({ url, alt })),
+    otherImages: [...otherImages],
+    pdfs: [...pdfs],
+  };
 }
 `;
 
@@ -344,7 +352,7 @@ async function scrapeFloorPlanAssets(rootUrl: string, client: ApifyClient): Prom
 
   const out: CrawledAsset[] = [];
   const seen = new Set<string>();
-  const add = (url: unknown, sourcePageUrl: string, forcePlan: boolean) => {
+  const add = (url: unknown, sourcePageUrl: string, forcePlan: boolean, label?: string) => {
     if (typeof url !== "string" || !/^https?:/i.test(url) || seen.has(url)) return;
     seen.add(url);
     let type = classifyAsset(url);
@@ -352,13 +360,16 @@ async function scrapeFloorPlanAssets(rootUrl: string, client: ApifyClient): Prom
     // the URL has no recognizable image extension (common on CDN-hosted plans).
     if (forcePlan && type !== "floor_plan_pdf" && type !== "pdf") type = "floor_plan_image";
     if (type === "other") return;
-    out.push({ url, type, sourcePageUrl });
+    out.push({ url, type, sourcePageUrl, label: label || undefined });
   };
 
   for (const raw of items) {
     const item = raw as { url?: string; planImages?: unknown[]; pdfs?: unknown[] };
     const src = typeof item.url === "string" ? item.url : rootUrl;
-    for (const u of item.planImages ?? []) add(u, src, true);
+    for (const u of item.planImages ?? []) {
+      const p = u as { url?: string; alt?: string };
+      add(p?.url, src, true, p?.alt);
+    }
     for (const u of item.pdfs ?? []) add(u, src, false);
   }
   return out;

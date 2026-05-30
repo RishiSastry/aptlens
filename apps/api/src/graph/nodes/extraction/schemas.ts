@@ -10,21 +10,29 @@ import { z } from "zod";
 const status = z.enum(["confirmed", "likely", "unclear", "missing", "conflicting"]).catch("missing");
 const confidence = z.enum(["high", "medium", "low"]).catch("low");
 
-/** EvidenceField<value> — value type varies, so accept the JSON-primitive union. */
-function evidenceField<T extends z.ZodTypeAny>(value: T) {
-  return z.object({
-    value: value.nullable(),
-    status,
-    confidence,
-    sourceUrl: z.string().nullish(),
-    evidenceSnippet: z.string().nullish(),
-  });
+// Robust evidence field for LLM output: value accepts ANY primitive (models
+// often put a boolean where a string is "expected"), the whole field self-heals
+// to "missing" if malformed, and it is omittable. The prompt — not the value
+// type — conveys each field's meaning, so one permissive shape covers all.
+const MISSING = { value: null, status: "missing", confidence: "low" } as const;
+const evidenceFieldBase = z.object({
+  value: z.union([z.string(), z.number(), z.boolean()]).nullable(),
+  status,
+  confidence,
+  sourceUrl: z.string().nullish(),
+  evidenceSnippet: z.string().nullish(),
+});
+const robustField = evidenceFieldBase.catch(() => ({ ...MISSING })).nullish();
+
+/** Kept for call sites that pass a value type — the arg is ignored (see above). */
+function evidenceField(_value?: z.ZodTypeAny) {
+  return robustField;
 }
 
-const numberField = evidenceField(z.number());
-const stringField = evidenceField(z.string());
-const boolField = evidenceField(z.boolean());
-const stringOrNumberField = evidenceField(z.union([z.string(), z.number()]));
+const numberField = robustField;
+const stringField = robustField;
+const boolField = robustField;
+const stringOrNumberField = robustField;
 
 // ── Property facts ──────────────────────────────────────────────────────────
 

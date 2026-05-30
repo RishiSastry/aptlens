@@ -6,7 +6,7 @@ import { floorPlanAnalysisSchema } from "./extraction/schemas.js";
 /** Cheap proxy for unit data quality, used to prioritize which units to analyze. */
 function knownFieldCount(u: UnitCandidate): number {
   return [u.rent, u.sqft, u.bedrooms, u.bathrooms, u.availableDate].filter(
-    (f) => f.value !== null && f.status !== "missing"
+    (f) => f && f.value !== null && f.status !== "missing"
   ).length;
 }
 
@@ -44,6 +44,20 @@ function planAssets(unit: UnitCandidate): VisionAsset[] {
 }
 
 /**
+ * Vision models sometimes return usability scores on a 0–10 scale instead of
+ * 0–100. If every score is ≤10, rescale ×10 so downstream thresholds (which
+ * assume 0–100) read correctly.
+ */
+function normalizeScores(scores: Record<string, number | null | undefined>): void {
+  const vals = Object.values(scores).filter((v): v is number => typeof v === "number");
+  if (vals.length > 0 && Math.max(...vals) <= 10) {
+    for (const k of Object.keys(scores)) {
+      if (typeof scores[k] === "number") scores[k] = Math.min(100, (scores[k] as number) * 10);
+    }
+  }
+}
+
+/**
  * Analyze floor-plan assets (images → GPT-4o, PDFs → Claude) for the selected
  * units and attach a structured FloorPlanAnalysis to each. Best-effort: skips
  * entirely without any vision-capable key, and a per-unit failure is recorded
@@ -74,8 +88,8 @@ export async function analyzeFloorplans(state: PipelineState): Promise<PipelineS
               unitId: unit.unitId,
               unitName: unit.unitName,
               floorPlanName: unit.floorPlanName,
-              bedrooms: unit.bedrooms.value,
-              sqft: unit.sqft.value,
+              bedrooms: unit.bedrooms?.value ?? null,
+              sqft: unit.sqft?.value ?? null,
             }),
             floorPlanEvidence: `Floor-plan asset(s) attached for analysis:\n${assets
               .map((a) => `${a.type}: ${a.url}`)
@@ -83,6 +97,7 @@ export async function analyzeFloorplans(state: PipelineState): Promise<PipelineS
           },
           schema: floorPlanAnalysisSchema,
         });
+        normalizeScores(analysis.usabilityScores);
         // Mutates the shared unit object (referenced by both state.units and property.units).
         unit.floorPlanAnalysis = { unitId: unit.unitId, ...analysis } as FloorPlanAnalysis;
         console.log(`[analyzeFloorplans] ${unit.unitId} → confidence ${analysis.confidence}`);

@@ -94,7 +94,9 @@ export function floorPlanCandidates(crawl: PropertyCrawl): CrawledAsset[] {
 /**
  * Best-effort mapping of property floor-plan assets to a specific unit:
  *   - single unit → it owns all candidates
- *   - otherwise   → match the unit's floor-plan/unit name slug against the asset URL
+ *   - otherwise   → match the unit's floor-plan/unit name slug against the asset's
+ *     alt-text label (e.g. "A1 - 1x1 Floor plan") or its URL. The label is the
+ *     reliable signal since plan-image URLs are usually opaque CDN hashes.
  */
 export function selectAssetsForUnit(
   propertyId: string,
@@ -108,8 +110,8 @@ export function selectAssetsForUnit(
   const keys = [floorPlanName, unitName].filter(Boolean).map((s) => slug(s!));
   return candidates
     .filter((a) => {
-      const u = slug(a.url);
-      return keys.some((k) => k.length >= 2 && u.includes(k));
+      const haystack = slug(`${a.label ?? ""} ${a.url}`);
+      return keys.some((k) => k.length >= 2 && haystack.includes(k));
     })
     .map((a) => toDiscoveredAsset(propertyId, a));
 }

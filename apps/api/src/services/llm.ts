@@ -4,7 +4,10 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { readFile } from "fs/promises";
 import { fileURLToPath } from "url";
 import { join, dirname } from "path";
-import type { ZodSchema } from "zod";
+import type { ZodType, ZodTypeDef } from "zod";
+
+/** A zod schema whose validated output is T; input may differ (e.g. `.catch()`). */
+type OutputSchema<T> = ZodType<T, ZodTypeDef, unknown>;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -83,20 +86,38 @@ export async function callStructured<T>(opts: {
   promptFile: string;
   vars?: Record<string, string>;
   userContent?: string;
-  schema: ZodSchema<T>;
+  schema: OutputSchema<T>;
 }): Promise<T> {
   const { role, promptFile, vars = {}, userContent, schema } = opts;
 
   const template = await loadPrompt(promptFile);
   const systemText = fillPrompt(template, vars);
 
+  // Always include a human message — Anthropic rejects system-only conversations.
   const messages = [
     new SystemMessage(systemText),
-    ...(userContent ? [new HumanMessage(userContent)] : []),
+    new HumanMessage(userContent ?? "Produce the structured output now, following the instructions above."),
   ];
 
   // function-calling structured output — works across OpenAI/Anthropic and
   // tolerates optional/union fields (OpenAI's strict json-schema mode does not).
   const model = getLLM(role).withStructuredOutput(schema, { method: "functionCalling" });
   return model.invoke(messages) as Promise<T>;
+}
+
+/** Like callStructured, but returns the model's raw text (e.g. a Markdown report). */
+export async function callText(opts: {
+  role: LLMRole;
+  promptFile: string;
+  vars?: Record<string, string>;
+  userContent?: string;
+}): Promise<string> {
+  const { role, promptFile, vars = {}, userContent } = opts;
+  const systemText = fillPrompt(await loadPrompt(promptFile), vars);
+  const messages = [
+    new SystemMessage(systemText),
+    ...(userContent ? [new HumanMessage(userContent)] : []),
+  ];
+  const res = await getLLM(role).invoke(messages);
+  return typeof res.content === "string" ? res.content : JSON.stringify(res.content);
 }

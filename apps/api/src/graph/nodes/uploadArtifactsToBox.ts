@@ -1,5 +1,5 @@
 import type { PipelineState } from "../state.js";
-import { boxConfigured, uploadJson, type BoxFile } from "../../services/box.js";
+import { boxConfigured, uploadJson, uploadText, type BoxFile } from "../../services/box.js";
 
 /** Tour-ready checklist derived from the ranked tour plan. */
 function buildTourChecklist(state: PipelineState) {
@@ -79,7 +79,22 @@ export async function uploadArtifactsToBox(state: PipelineState): Promise<Pipeli
 
   // Reports — these become the user-facing artifact links.
   const reports = subfolders["reports"];
-  const decisionPacket = await tryUpload("decision-packet.json", buildDecisionPacket(state), reports);
+
+  // Reasoning-layer outputs (comparisons, judge audits) for traceability.
+  await tryUpload("unit-comparison.json", state.unitComparison, reports);
+  await tryUpload("apartment-comparison.json", state.apartmentComparison, reports);
+  await tryUpload("judge-results.json", state.judge, subfolders["judge-results"]);
+  // The Markdown decision packet (generateReport) is the headline artifact when present.
+  let decisionPacket: BoxFile | undefined;
+  if (state.decisionPacket && reports) {
+    try {
+      decisionPacket = await uploadText("decision-packet.md", state.decisionPacket, reports, "text/markdown");
+      console.log(`[uploadArtifactsToBox] Uploaded decision-packet.md → ${decisionPacket.id}`);
+    } catch (err) {
+      errors.push(`Box upload failed for decision-packet.md: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  decisionPacket ??= await tryUpload("decision-packet.json", buildDecisionPacket(state), reports);
   const missingInfo = await tryUpload("missing-info.json", state.missingInfo, reports);
   const tourChecklist = await tryUpload("tour-checklist.json", buildTourChecklist(state), reports);
   const leasingQuestions = await tryUpload(

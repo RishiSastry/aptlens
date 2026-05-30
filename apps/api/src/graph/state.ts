@@ -7,6 +7,14 @@ import type {
   PropertyRecommendation,
 } from "@aptlens/shared";
 import type { ComparisonViews } from "@aptlens/shared/chartTypes";
+import type {
+  ApartmentComparisonOut,
+  JudgeExtractionsOut,
+  JudgeResultOut,
+  MissingQuestionsOut,
+  TourPlanOut,
+  UnitComparisonOut,
+} from "./nodes/reasoning/schemas.js";
 
 export type TourPlan = {
   tourFirst: PropertyRecommendation[];
@@ -43,6 +51,23 @@ export type PipelineState = {
   // Populated by buildComparisonViews
   comparisonViews: ComparisonViews | null;
 
+  // Populated by the reasoning layer (LLM tab generators)
+  unitComparison: UnitComparisonOut | null;
+  apartmentComparison: ApartmentComparisonOut | null;
+  missingQuestions: MissingQuestionsOut | null;
+  tourPlanTabs: TourPlanOut | null;
+  /** Markdown decision packet from generateReport. */
+  decisionPacket: string | null;
+
+  // Populated by the judge nodes (quality gates; uploaded to Box judge-results)
+  judge: {
+    extraction?: JudgeExtractionsOut;
+    floorplan?: JudgeResultOut;
+    report?: JudgeResultOut;
+  };
+  /** Judge→repair retry counters (capped to avoid loops). */
+  retryCounts: { extraction: number; floorplan: number; report: number };
+
   // Populated by createBoxProject — folder ids reused by uploadArtifactsToBox
   box: BoxProject | null;
 
@@ -69,6 +94,13 @@ export function initState(request: AnalyzeRequest): PipelineState {
     tourPlan: null,
     missingInfo: [],
     comparisonViews: null,
+    unitComparison: null,
+    apartmentComparison: null,
+    missingQuestions: null,
+    tourPlanTabs: null,
+    decisionPacket: null,
+    judge: {},
+    retryCounts: { extraction: 0, floorplan: 0, report: 0 },
     box: null,
     artifacts: {},
     errors: [],
