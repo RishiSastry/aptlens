@@ -15,6 +15,15 @@ type ComparisonChartsProps = {
 };
 
 export function ComparisonCharts({ comparisonViews }: ComparisonChartsProps) {
+  if (comparisonViews.constraintFit.length === 0) {
+    return (
+      <div className="empty-state compact">
+        <h2>No comparison data yet</h2>
+        <p>Charts will appear after the backend produces ranked comparison views.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="comparison-grid">
       <section className="chart-panel">

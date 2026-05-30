@@ -90,6 +90,7 @@ h1 {
 .chart-panel,
 .missing-panel,
 .tour-section,
+.artifact-panel,
 .matrix-grid > section,
 .empty-state {
   background: white;
@@ -242,11 +243,59 @@ textarea {
   padding: 48px;
 }
 
+.empty-state.compact {
+  min-height: 180px;
+  padding: 28px;
+}
+
+.muted {
+  color: #64748b;
+  line-height: 1.5;
+  margin-bottom: 0;
+}
+
 .summary-grid {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   margin-bottom: 18px;
+}
+
+.artifact-panel {
+  align-items: center;
+  box-shadow: none;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding: 16px;
+}
+
+.artifact-panel h2 {
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.artifact-panel p {
+  color: #64748b;
+  margin-bottom: 0;
+}
+
+.artifact-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.artifact-links a {
+  align-items: center;
+  background: #ecfdf5;
+  border-radius: 7px;
+  display: inline-flex;
+  gap: 6px;
+  padding: 9px 10px;
+  text-decoration: none;
 }
 
 .metric {
@@ -559,6 +608,15 @@ a {
   .comparison-grid,
   .missing-groups {
     grid-template-columns: 1fr;
+  }
+
+  .artifact-panel {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .artifact-links {
+    justify-content: flex-start;
   }
 
   .intake-panel {

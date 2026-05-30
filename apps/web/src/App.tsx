@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { AnalyzeRequest, RankedUnitCard } from "@aptlens/shared";
 import { analyzeApartments } from "./api/client";
+import { ArtifactLinks } from "./components/ArtifactLinks";
 import { ComparisonCharts } from "./components/ComparisonCharts";
 import { ComparisonMatrix } from "./components/ComparisonMatrix";
 import { EvidenceDrawer } from "./components/EvidenceDrawer";
@@ -84,6 +85,7 @@ export default function App() {
           {result && (
             <>
               <SummaryCards summary={result.summary} />
+              <ArtifactLinks artifacts={result.artifacts} />
 
               <nav className="tabs" aria-label="Results tabs">
                 {tabs.map((tab) => (

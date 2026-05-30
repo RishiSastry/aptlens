@@ -53,9 +53,13 @@ export function TourPlan({ tourPlan }: TourPlanProps) {
       {sections.map((section) => (
         <section className={`tour-section ${section.tone}`} key={section.key}>
           <h2>{section.title}</h2>
-          {tourPlan[section.key].map((item) => (
-            <Recommendation item={item} key={item.propertyId} />
-          ))}
+          {tourPlan[section.key].length > 0 ? (
+            tourPlan[section.key].map((item) => (
+              <Recommendation item={item} key={item.propertyId} />
+            ))
+          ) : (
+            <p className="muted">No properties in this group yet.</p>
+          )}
         </section>
       ))}
     </div>

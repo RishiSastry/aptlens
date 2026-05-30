@@ -8,6 +8,15 @@ type RankedUnitsTableProps = {
 };
 
 export function RankedUnitsTable({ units, onSelectUnit }: RankedUnitsTableProps) {
+  if (units.length === 0) {
+    return (
+      <div className="empty-state compact">
+        <h2>No ranked units yet</h2>
+        <p>Ranked units will appear after extraction and scoring produce candidates.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="table-wrap">
       <table>

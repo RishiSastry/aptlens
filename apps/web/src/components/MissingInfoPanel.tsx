@@ -37,16 +37,20 @@ export function MissingInfoPanel({ items }: MissingInfoPanelProps) {
           return (
             <section className="missing-group" key={priority}>
               <h3>{priority.replace(/_/g, " ")}</h3>
-              {group.map((item) => (
-                <article className="question-row" key={`${item.field}-${item.question}`}>
-                  <strong>
-                    {item.propertyName}
-                    {item.unitName ? `, ${item.unitName}` : ""}
-                  </strong>
-                  <p>{item.question}</p>
-                  <span>{item.reason}</span>
-                </article>
-              ))}
+              {group.length > 0 ? (
+                group.map((item) => (
+                  <article className="question-row" key={`${item.field}-${item.question}`}>
+                    <strong>
+                      {item.propertyName}
+                      {item.unitName ? `, ${item.unitName}` : ""}
+                    </strong>
+                    <p>{item.question}</p>
+                    <span>{item.reason}</span>
+                  </article>
+                ))
+              ) : (
+                <p className="muted">No questions in this priority.</p>
+              )}
             </section>
           );
         })}

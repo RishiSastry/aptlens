@@ -6,6 +6,13 @@ type ComparisonMatrixProps = {
 };
 
 export function ComparisonMatrix({ comparisonViews }: ComparisonMatrixProps) {
+  if (
+    comparisonViews.petMatrix.length === 0 &&
+    comparisonViews.floorPlanMatrix.length === 0
+  ) {
+    return null;
+  }
+
   return (
     <div className="matrix-grid">
       <section>
