@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "echo 'API runs via tsx — no compilation step needed'",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
