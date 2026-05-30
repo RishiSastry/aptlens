@@ -43,10 +43,20 @@ export type PipelineState = {
   // Populated by buildComparisonViews
   comparisonViews: ComparisonViews | null;
 
+  // Populated by createBoxProject — folder ids reused by uploadArtifactsToBox
+  box: BoxProject | null;
+
   // Populated by buildReport
   artifacts: Artifacts;
 
   errors: string[];
+};
+
+/** Box folder ids for the current run's project workspace. */
+export type BoxProject = {
+  projectFolderId: string;
+  /** Subfolder name → Box folder id (raw-evidence, properties, units, reports, judge-results). */
+  subfolders: Record<string, string>;
 };
 
 export function initState(request: AnalyzeRequest): PipelineState {
@@ -59,6 +69,7 @@ export function initState(request: AnalyzeRequest): PipelineState {
     tourPlan: null,
     missingInfo: [],
     comparisonViews: null,
+    box: null,
     artifacts: {},
     errors: [],
   };
