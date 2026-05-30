@@ -1,0 +1,20 @@
+{
+  "name": "aptlens",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "dev:web": "pnpm --filter @aptlens/web dev",
+    "dev:api": "pnpm --filter @aptlens/api dev",
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "typecheck": "turbo typecheck"
+  },
+  "packageManager": "pnpm@11.5.0",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0"
+  }
+}
