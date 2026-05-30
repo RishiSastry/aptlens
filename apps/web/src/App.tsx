@@ -48,7 +48,7 @@ export default function App() {
     <main className="app-shell">
       <section className="hero">
         <div>
-          <p className="eyebrow">AptLens MVP</p>
+          <p className="eyebrow">AptLens</p>
           <h1>Apartment due diligence before the tour.</h1>
           <p>
             Paste apartment links and constraints. AptLens turns scattered listings,

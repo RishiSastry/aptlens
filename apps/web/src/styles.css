@@ -163,6 +163,51 @@ textarea {
   resize: vertical;
 }
 
+.url-slots {
+  display: grid;
+  gap: 12px;
+}
+
+.field-row {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.field-label {
+  color: #334155;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.field-count {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.url-slot {
+  gap: 6px;
+}
+
+.url-slot span {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.url-input-row {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.add-url {
+  justify-self: start;
+}
+
 .field-grid {
   display: grid;
   gap: 12px;

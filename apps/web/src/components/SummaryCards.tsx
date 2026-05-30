@@ -10,7 +10,6 @@ const labels: Array<[keyof AnalyzeResponse["summary"], string]> = [
   ["floorPlansFound", "Floor plans"],
   ["missingInfoCount", "Missing details"],
   ["tourFirstCount", "Tour first"],
-  ["estimatedTimeSavedMinutes", "Minutes saved"],
 ];
 
 export function SummaryCards({ summary }: SummaryCardsProps) {

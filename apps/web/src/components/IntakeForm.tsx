@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Search } from "lucide-react";
+import { Plus, Search, Trash2 } from "lucide-react";
 import type { AnalyzeRequest } from "@aptlens/shared";
 
 type IntakeFormProps = {
@@ -7,15 +7,10 @@ type IntakeFormProps = {
   onSubmit: (request: AnalyzeRequest) => void;
 };
 
-const sampleUrls = [
-  "https://unionslu.example.com/apartments",
-  "https://avalonbelltown.example.com/floorplans",
-  "https://pineandminor.example.com/availability",
-  "https://harborview.example.com/apartments",
-].join("\n");
+const maxUrlCount = 8;
 
 export function IntakeForm({ disabled, onSubmit }: IntakeFormProps) {
-  const [urls, setUrls] = useState(sampleUrls);
+  const [urls, setUrls] = useState(["", ""]);
   const [budget, setBudget] = useState("2800");
   const [petWeight, setPetWeight] = useState("45");
   const [parking, setParking] =
@@ -25,10 +20,7 @@ export function IntakeForm({ disabled, onSubmit }: IntakeFormProps) {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const parsedUrls = urls
-      .split(/\n|,/)
-      .map((url) => url.trim())
-      .filter(Boolean);
+    const parsedUrls = urls.map((url) => url.trim()).filter(Boolean);
 
     onSubmit({
       urls: parsedUrls,
@@ -57,15 +49,51 @@ export function IntakeForm({ disabled, onSubmit }: IntakeFormProps) {
 
   return (
     <form className="intake" onSubmit={handleSubmit}>
-      <div>
-        <label htmlFor="urls">Apartment URLs</label>
-        <textarea
-          id="urls"
-          value={urls}
-          onChange={(event) => setUrls(event.target.value)}
-          rows={7}
-          disabled={disabled}
-        />
+      <div className="url-slots">
+        <div className="field-row">
+          <span className="field-label">Apartment URLs</span>
+          <span className="field-count">{parsedUrlCount(urls)} / {maxUrlCount}</span>
+        </div>
+
+        {urls.map((url, index) => (
+          <label className="url-slot" key={`url-${index + 1}`}>
+            <span>Apartment {index + 1}</span>
+            <div className="url-input-row">
+              <input
+                value={url}
+                onChange={(event) => {
+                  const next = [...urls];
+                  next[index] = event.target.value;
+                  setUrls(next);
+                }}
+                placeholder="https://example.com/apartments"
+                type="url"
+                disabled={disabled}
+              />
+              {urls.length > 2 && (
+                <button
+                  className="icon-button"
+                  type="button"
+                  onClick={() => setUrls(urls.filter((_, urlIndex) => urlIndex !== index))}
+                  disabled={disabled}
+                  aria-label={`Remove apartment ${index + 1}`}
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
+            </div>
+          </label>
+        ))}
+
+        <button
+          className="secondary-action add-url"
+          type="button"
+          onClick={() => setUrls([...urls, ""])}
+          disabled={disabled || urls.length >= maxUrlCount}
+        >
+          <Plus size={17} />
+          Add apartment
+        </button>
       </div>
 
       <div className="field-grid">
@@ -123,4 +151,8 @@ export function IntakeForm({ disabled, onSubmit }: IntakeFormProps) {
       </button>
     </form>
   );
+}
+
+function parsedUrlCount(urls: string[]) {
+  return urls.filter((url) => url.trim()).length;
 }
