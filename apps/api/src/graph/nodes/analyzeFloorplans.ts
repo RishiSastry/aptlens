@@ -1,6 +1,6 @@
 import type { FloorPlanAnalysis, UnitCandidate } from "@aptlens/shared";
 import type { PipelineState } from "../state.js";
-import { analyzeImages } from "../../services/vision.js";
+import { analyzeFloorPlanAssets, type VisionAsset } from "../../services/vision.js";
 import { floorPlanAnalysisSchema } from "./extraction/schemas.js";
 
 /** Cheap proxy for unit data quality, used to prioritize which units to analyze. */
@@ -36,35 +36,38 @@ export function selectUnitsForDeepAnalysis(units: UnitCandidate[]): UnitCandidat
   return selected.slice(0, 5);
 }
 
-/** Only raster floor-plan images can be sent to vision; PDFs are skipped (no conversion yet). */
-function imageUrls(unit: UnitCandidate): string[] {
-  return unit.floorPlanAssets.filter((a) => a.type === "floor_plan_image").map((a) => a.url);
+/** Floor-plan assets (images + PDFs) for a unit, as vision inputs. */
+function planAssets(unit: UnitCandidate): VisionAsset[] {
+  return unit.floorPlanAssets
+    .filter((a) => a.type === "floor_plan_image" || a.type === "floor_plan_pdf")
+    .map((a) => ({ url: a.url, type: a.type }));
 }
 
 /**
- * Analyze floor-plan images for the selected units and attach a structured
- * FloorPlanAnalysis to each. Best-effort: skips entirely without an OpenAI key,
- * and a per-unit failure is recorded but never crashes the pipeline.
+ * Analyze floor-plan assets (images → GPT-4o, PDFs → Claude) for the selected
+ * units and attach a structured FloorPlanAnalysis to each. Best-effort: skips
+ * entirely without any vision-capable key, and a per-unit failure is recorded
+ * but never crashes the pipeline.
  */
 export async function analyzeFloorplans(state: PipelineState): Promise<PipelineState> {
   const errors = [...state.errors];
 
-  if (!process.env.OPENAI_API_KEY) {
-    console.log("[analyzeFloorplans] No OPENAI_API_KEY — skipping vision analysis");
+  if (!process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY) {
+    console.log("[analyzeFloorplans] No OPENAI/ANTHROPIC key — skipping vision analysis");
     return state;
   }
 
   const userPreferences = JSON.stringify(state.request.preferences);
-  const selected = selectUnitsForDeepAnalysis(state.units).filter((u) => imageUrls(u).length > 0);
+  const selected = selectUnitsForDeepAnalysis(state.units).filter((u) => planAssets(u).length > 0);
   console.log(`[analyzeFloorplans] Analyzing floor plans for ${selected.length} units`);
 
   await Promise.all(
     selected.map(async (unit) => {
       try {
-        const urls = imageUrls(unit);
-        const analysis = await analyzeImages({
+        const assets = planAssets(unit);
+        const analysis = await analyzeFloorPlanAssets({
           promptFile: "analyze_floorplan.md",
-          imageUrls: urls,
+          assets,
           vars: {
             userPreferences,
             unitContext: JSON.stringify({
@@ -74,7 +77,9 @@ export async function analyzeFloorplans(state: PipelineState): Promise<PipelineS
               bedrooms: unit.bedrooms.value,
               sqft: unit.sqft.value,
             }),
-            floorPlanEvidence: `Floor-plan image(s) attached for analysis:\n${urls.join("\n")}`,
+            floorPlanEvidence: `Floor-plan asset(s) attached for analysis:\n${assets
+              .map((a) => `${a.type}: ${a.url}`)
+              .join("\n")}`,
           },
           schema: floorPlanAnalysisSchema,
         });

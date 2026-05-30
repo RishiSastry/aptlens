@@ -4,8 +4,11 @@ import { z } from "zod";
 // `.withStructuredOutput(...)`. Kept api-internal (the shared package exports
 // the TS types; these are the runtime validators the LLM output is checked against).
 
-const status = z.enum(["confirmed", "likely", "unclear", "missing", "conflicting"]);
-const confidence = z.enum(["high", "medium", "low"]);
+// Models sometimes return an out-of-enum value (e.g. confidence "missing",
+// conflating it with status). `.catch()` self-heals those to a safe default
+// instead of failing the entire structured-output parse.
+const status = z.enum(["confirmed", "likely", "unclear", "missing", "conflicting"]).catch("missing");
+const confidence = z.enum(["high", "medium", "low"]).catch("low");
 
 /** EvidenceField<value> — value type varies, so accept the JSON-primitive union. */
 function evidenceField<T extends z.ZodTypeAny>(value: T) {
@@ -13,8 +16,8 @@ function evidenceField<T extends z.ZodTypeAny>(value: T) {
     value: value.nullable(),
     status,
     confidence,
-    sourceUrl: z.string().optional(),
-    evidenceSnippet: z.string().optional(),
+    sourceUrl: z.string().nullish(),
+    evidenceSnippet: z.string().nullish(),
   });
 }
 
@@ -27,18 +30,18 @@ const stringOrNumberField = evidenceField(z.union([z.string(), z.number()]));
 
 const amenitiesSchema = z
   .object({
-    gym: boolField.optional(),
-    pool: boolField.optional(),
-    rooftop: boolField.optional(),
-    coworking: boolField.optional(),
-    lounge: boolField.optional(),
-    packageRoom: boolField.optional(),
-    dogWash: boolField.optional(),
-    dogPark: boolField.optional(),
-    bikeStorage: boolField.optional(),
-    evCharging: boolField.optional(),
+    gym: boolField.nullish(),
+    pool: boolField.nullish(),
+    rooftop: boolField.nullish(),
+    coworking: boolField.nullish(),
+    lounge: boolField.nullish(),
+    packageRoom: boolField.nullish(),
+    dogWash: boolField.nullish(),
+    dogPark: boolField.nullish(),
+    bikeStorage: boolField.nullish(),
+    evCharging: boolField.nullish(),
   })
-  .optional();
+  .nullish();
 
 export const propertyFactsSchema = z.object({
   petAllowed: boolField,
@@ -56,16 +59,16 @@ export const propertyFactsSchema = z.object({
   securityDeposit: numberField,
 
   // Richer optional signals (see shared PropertyFacts).
-  dogsAllowed: boolField.optional(),
-  catsAllowed: boolField.optional(),
-  maxPets: numberField.optional(),
-  petScreening: boolField.optional(),
-  parkingType: stringField.optional(),
-  evCharging: boolField.optional(),
+  dogsAllowed: boolField.nullish(),
+  catsAllowed: boolField.nullish(),
+  maxPets: numberField.nullish(),
+  petScreening: boolField.nullish(),
+  parkingType: stringField.nullish(),
+  evCharging: boolField.nullish(),
   amenities: amenitiesSchema,
-  missingCriticalFacts: z.array(z.string()).optional(),
-  conflictingFacts: z.array(z.string()).optional(),
-  notes: z.array(z.string()).optional(),
+  missingCriticalFacts: z.array(z.string()).nullish(),
+  conflictingFacts: z.array(z.string()).nullish(),
+  notes: z.array(z.string()).nullish(),
 });
 export type PropertyFactsExtraction = z.infer<typeof propertyFactsSchema>;
 
@@ -73,21 +76,21 @@ export type PropertyFactsExtraction = z.infer<typeof propertyFactsSchema>;
 
 const unitLayoutSignalsSchema = z
   .object({
-    bedroom: stringField.optional(),
-    bathroom: stringField.optional(),
-    kitchen: stringField.optional(),
-    livingDining: stringField.optional(),
-    balconyOutdoor: stringField.optional(),
-    closetStorage: stringField.optional(),
-    wfh: stringField.optional(),
+    bedroom: stringField.nullish(),
+    bathroom: stringField.nullish(),
+    kitchen: stringField.nullish(),
+    livingDining: stringField.nullish(),
+    balconyOutdoor: stringField.nullish(),
+    closetStorage: stringField.nullish(),
+    wfh: stringField.nullish(),
   })
-  .optional();
+  .nullish();
 
 export const unitExtractionSchema = z.object({
   units: z.array(
     z.object({
       unitName: z.string(),
-      floorPlanName: z.string().optional(),
+      floorPlanName: z.string().nullish(),
       rent: numberField,
       sqft: numberField,
       bedrooms: numberField,
@@ -95,11 +98,11 @@ export const unitExtractionSchema = z.object({
       availableDate: stringField,
 
       // Richer optional signals (see shared UnitCandidate).
-      availabilityCount: numberField.optional(),
-      leaseTerm: stringField.optional(),
+      availabilityCount: numberField.nullish(),
+      leaseTerm: stringField.nullish(),
       layoutSignals: unitLayoutSignalsSchema,
-      missingFacts: z.array(z.string()).optional(),
-      notes: z.array(z.string()).optional(),
+      missingFacts: z.array(z.string()).nullish(),
+      notes: z.array(z.string()).nullish(),
     })
   ),
 });
@@ -120,11 +123,11 @@ const roomSignal = z.object({
     "laundry",
     "entry",
   ]),
-  labelFromPlan: z.string().optional(),
-  dimensionsText: z.string().optional(),
-  widthFt: z.number().optional(),
-  lengthFt: z.number().optional(),
-  areaSqft: z.number().optional(),
+  labelFromPlan: z.string().nullish(),
+  dimensionsText: z.string().nullish(),
+  widthFt: z.number().nullish(),
+  lengthFt: z.number().nullish(),
+  areaSqft: z.number().nullish(),
   features: z.array(z.string()),
   limitations: z.array(z.string()),
   confidence,
@@ -133,7 +136,7 @@ const roomSignal = z.object({
 
 /** What the vision model returns; the node adds unitId before storing. */
 export const floorPlanAnalysisSchema = z.object({
-  floorPlanName: z.string().optional(),
+  floorPlanName: z.string().nullish(),
   rooms: z.object({
     bedrooms: z.array(roomSignal),
     bathrooms: z.array(roomSignal),
@@ -160,14 +163,14 @@ export const floorPlanAnalysisSchema = z.object({
     kitchenUsabilityScore: z.number(),
     livingRoomUsabilityScore: z.number(),
     bathroomConvenienceScore: z.number(),
-    livingDiningScore: z.number().optional(),
+    livingDiningScore: z.number().nullish(),
   }),
   confidence,
   notes: z.array(z.string()),
 
   // Narrative outputs (see shared FloorPlanAnalysis).
-  insights: z.array(z.string()).optional(),
-  caveats: z.array(z.string()).optional(),
-  tourVerification: z.array(z.string()).optional(),
+  insights: z.array(z.string()).nullish(),
+  caveats: z.array(z.string()).nullish(),
+  tourVerification: z.array(z.string()).nullish(),
 });
 export type FloorPlanAnalysisExtraction = z.infer<typeof floorPlanAnalysisSchema>;

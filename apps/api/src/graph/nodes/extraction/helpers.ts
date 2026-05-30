@@ -76,10 +76,18 @@ function toDiscoveredAsset(propertyId: string, asset: CrawledAsset): DiscoveredA
   };
 }
 
-/** Property-level assets that plausibly depict a floor plan (PDFs, or images hinting floor/plan). */
+/** Decorative graphics that match "floorplan" by name but aren't unit diagrams. */
+const NON_PLAN_IMAGE = /icon|logo|sprite|thumb|badge|banner|favicon/i;
+
+/** Property-level assets that plausibly depict a floor plan. */
 export function floorPlanCandidates(crawl: PropertyCrawl): CrawledAsset[] {
   return crawl.assets.filter(
-    (a) => a.type === "floor_plan_pdf" || (a.type === "image" && /floor|plan|\bfp\b/i.test(a.url))
+    (a) =>
+      // Already classified as a plan by the DOM scraper.
+      a.type === "floor_plan_image" ||
+      a.type === "floor_plan_pdf" ||
+      // Or a generic image whose URL hints "floor plan" (and isn't a UI icon).
+      (a.type === "image" && /floor|plan|\bfp\b/i.test(a.url) && !NON_PLAN_IMAGE.test(a.url))
   );
 }
 

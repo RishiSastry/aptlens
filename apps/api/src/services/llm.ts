@@ -95,6 +95,8 @@ export async function callStructured<T>(opts: {
     ...(userContent ? [new HumanMessage(userContent)] : []),
   ];
 
-  const model = getLLM(role).withStructuredOutput(schema);
+  // function-calling structured output — works across OpenAI/Anthropic and
+  // tolerates optional/union fields (OpenAI's strict json-schema mode does not).
+  const model = getLLM(role).withStructuredOutput(schema, { method: "functionCalling" });
   return model.invoke(messages) as Promise<T>;
 }

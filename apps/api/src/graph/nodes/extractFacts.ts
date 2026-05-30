@@ -110,22 +110,27 @@ async function extractUnits(
   const candidates = floorPlanCandidates(crawl);
   const onlyUnit = extracted.units.length === 1;
 
-  return extracted.units.map((u, i) => ({
-    unitId: `${propertyId}-unit-${i + 1}`,
-    propertyId,
-    propertyName,
-    unitName: u.unitName,
-    floorPlanName: u.floorPlanName,
-    rent: u.rent,
-    sqft: u.sqft,
-    bedrooms: u.bedrooms,
-    bathrooms: u.bathrooms,
-    availableDate: u.availableDate,
-    availabilityCount: u.availabilityCount,
-    leaseTerm: u.leaseTerm,
-    layoutSignals: u.layoutSignals,
-    missingFacts: u.missingFacts,
-    extractionNotes: u.notes,
-    floorPlanAssets: selectAssetsForUnit(propertyId, candidates, u.unitName, u.floorPlanName, onlyUnit),
-  }));
+  // The LLM schema mirrors UnitCandidate but with `null` where the domain type
+  // uses optional `undefined` — coerce floorPlanName and cast the boundary.
+  return extracted.units.map((u, i) => {
+    const floorPlanName = u.floorPlanName ?? undefined;
+    return {
+      unitId: `${propertyId}-unit-${i + 1}`,
+      propertyId,
+      propertyName,
+      unitName: u.unitName,
+      floorPlanName,
+      rent: u.rent,
+      sqft: u.sqft,
+      bedrooms: u.bedrooms,
+      bathrooms: u.bathrooms,
+      availableDate: u.availableDate,
+      availabilityCount: u.availabilityCount,
+      leaseTerm: u.leaseTerm,
+      layoutSignals: u.layoutSignals,
+      missingFacts: u.missingFacts,
+      extractionNotes: u.notes,
+      floorPlanAssets: selectAssetsForUnit(propertyId, candidates, u.unitName, floorPlanName, onlyUnit),
+    };
+  }) as unknown as UnitCandidate[];
 }
