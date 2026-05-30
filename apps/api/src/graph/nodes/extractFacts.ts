@@ -1,61 +1,131 @@
-import type { PropertyCandidate, UnitCandidate } from "@aptlens/shared";
+import type { PropertyCandidate, PropertyFacts, UnitCandidate } from "@aptlens/shared";
 import type { PipelineState } from "../state.js";
+import type { PropertyCrawl } from "../../services/apify.js";
+import { callStructured } from "../../services/llm.js";
 import { propertyIdFromUrl, propertyNameFromUrl } from "./crawlUrls.js";
+import { propertyFactsSchema, unitExtractionSchema } from "./extraction/schemas.js";
+import {
+  buildPageContent,
+  emptyPropertyFacts,
+  floorPlanCandidates,
+  llmConfigured,
+  placeholderUnit,
+  selectAssetsForUnit,
+} from "./extraction/helpers.js";
 
-// TODO (Task 7): replace stubs with LLM extraction using
-//   extract_property_facts.md, extract_unit_facts.md, extract_pet_policy.md
+/**
+ * Turn raw crawl results into typed properties + units.
+ *
+ * When a property has crawl pages and an LLM key is configured, facts and units
+ * are extracted via the LLM with strict evidence discipline. Otherwise (cache
+ * miss, no key, empty crawl) we fall back to an all-missing placeholder so the
+ * rest of the pipeline still runs. Floor-plan assets are attached here; the
+ * analyzeFloorplans node consumes them next.
+ */
 export async function extractFacts(state: PipelineState): Promise<PipelineState> {
   const { urls } = state.request;
+  const llmReady = llmConfigured();
+  const errors = [...state.errors];
 
-  console.log(`[extractFacts] Building placeholder properties for ${urls.length} URLs`);
+  console.log(
+    `[extractFacts] Extracting ${urls.length} properties (${llmReady ? "LLM" : "placeholder — no LLM key"})`
+  );
 
-  const properties: PropertyCandidate[] = urls.map((url) => {
+  // Rachel's prompts take user preferences as a {{userPreferences}} variable.
+  const userPreferences = JSON.stringify(state.request.preferences);
+
+  const properties: PropertyCandidate[] = [];
+  const allUnits: UnitCandidate[] = [];
+
+  for (const url of urls) {
     const propertyId = propertyIdFromUrl(url);
     const name = propertyNameFromUrl(url);
+    const crawl = state.crawlResults[propertyId] as PropertyCrawl | null | undefined;
+    const evidence = crawl ? buildPageContent(crawl) : "";
 
-    return {
-      propertyId,
-      name,
-      url,
-      units: [],
-      propertyFacts: {
-        petAllowed:        { value: null, status: "missing", confidence: "low" },
-        petRent:           { value: null, status: "missing", confidence: "low" },
-        petDeposit:        { value: null, status: "missing", confidence: "low" },
-        oneTimePetFee:     { value: null, status: "missing", confidence: "low" },
-        petWeightLimit:    { value: null, status: "missing", confidence: "low" },
-        breedRestrictions: { value: null, status: "missing", confidence: "low" },
-        parkingFee:        { value: null, status: "missing", confidence: "low" },
-        parkingPolicy:     { value: null, status: "missing", confidence: "low" },
-        utilitiesIncluded: { value: null, status: "missing", confidence: "low" },
-        amenityFee:        { value: null, status: "missing", confidence: "low" },
-        applicationFee:    { value: null, status: "missing", confidence: "low" },
-        adminFee:          { value: null, status: "missing", confidence: "low" },
-        securityDeposit:   { value: null, status: "missing", confidence: "low" },
-      },
-    };
-  });
+    let facts: PropertyFacts = emptyPropertyFacts();
+    let units: UnitCandidate[] = [];
 
-  // One placeholder unit per property until real extraction runs
-  const units: UnitCandidate[] = properties.map((prop, i) => ({
-    unitId:       `${prop.propertyId}-unit-1`,
-    propertyId:   prop.propertyId,
-    propertyName: prop.name,
-    unitName:     "Unit TBD",
-    rent:          { value: null, status: "missing", confidence: "low" },
-    sqft:          { value: null, status: "missing", confidence: "low" },
-    bedrooms:      { value: null, status: "missing", confidence: "low" },
-    bathrooms:     { value: null, status: "missing", confidence: "low" },
-    availableDate: { value: null, status: "missing", confidence: "low" },
-    floorPlanAssets: [],
-    viability: "maybe_viable_needs_clarification",
+    if (llmReady && crawl && evidence.length > 0) {
+      facts = await extractPropertyFacts(userPreferences, evidence, errors, propertyId);
+      units = await extractUnits(propertyId, name, userPreferences, facts, evidence, crawl, errors);
+    }
+
+    // Fall back to a single placeholder unit if extraction produced none.
+    if (units.length === 0) units = [placeholderUnit(propertyId, name)];
+
+    properties.push({ propertyId, name, url, units, propertyFacts: facts });
+    allUnits.push(...units);
+  }
+
+  return { ...state, properties, units: allUnits, errors };
+}
+
+async function extractPropertyFacts(
+  userPreferences: string,
+  evidence: string,
+  errors: string[],
+  propertyId: string
+): Promise<PropertyFacts> {
+  try {
+    const result = await callStructured({
+      role: "text",
+      promptFile: "extract_property_facts.md",
+      vars: { userPreferences, evidence },
+      schema: propertyFactsSchema,
+    });
+    return result as PropertyFacts;
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    console.warn(`[extractFacts] Property-fact extraction failed for ${propertyId}: ${reason}`);
+    errors.push(`Property-fact extraction failed for ${propertyId}: ${reason}`);
+    return emptyPropertyFacts();
+  }
+}
+
+async function extractUnits(
+  propertyId: string,
+  propertyName: string,
+  userPreferences: string,
+  facts: PropertyFacts,
+  evidence: string,
+  crawl: PropertyCrawl,
+  errors: string[]
+): Promise<UnitCandidate[]> {
+  let extracted;
+  try {
+    extracted = await callStructured({
+      role: "text",
+      promptFile: "extract_unit_facts.md",
+      vars: { userPreferences, propertyFacts: JSON.stringify(facts), evidence },
+      schema: unitExtractionSchema,
+    });
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    console.warn(`[extractFacts] Unit extraction failed for ${propertyId}: ${reason}`);
+    errors.push(`Unit extraction failed for ${propertyId}: ${reason}`);
+    return [];
+  }
+
+  const candidates = floorPlanCandidates(crawl);
+  const onlyUnit = extracted.units.length === 1;
+
+  return extracted.units.map((u, i) => ({
+    unitId: `${propertyId}-unit-${i + 1}`,
+    propertyId,
+    propertyName,
+    unitName: u.unitName,
+    floorPlanName: u.floorPlanName,
+    rent: u.rent,
+    sqft: u.sqft,
+    bedrooms: u.bedrooms,
+    bathrooms: u.bathrooms,
+    availableDate: u.availableDate,
+    availabilityCount: u.availabilityCount,
+    leaseTerm: u.leaseTerm,
+    layoutSignals: u.layoutSignals,
+    missingFacts: u.missingFacts,
+    extractionNotes: u.notes,
+    floorPlanAssets: selectAssetsForUnit(propertyId, candidates, u.unitName, u.floorPlanName, onlyUnit),
   }));
-
-  // Attach units back to their properties
-  const propertiesWithUnits = properties.map((prop) => ({
-    ...prop,
-    units: units.filter((u) => u.propertyId === prop.propertyId),
-  }));
-
-  return { ...state, properties: propertiesWithUnits, units };
 }

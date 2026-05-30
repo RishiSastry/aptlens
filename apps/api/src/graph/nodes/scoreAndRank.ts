@@ -8,6 +8,7 @@ import { petScore, petCompatStatus, parkingScore, wfhScore, storageScore } from 
 import { filterUnitsByHardConstraints, type Viability } from "./scoring/constraints.js";
 import { triageRankUnits } from "./scoring/triage.js";
 import { tourPriorityFor, buildTopReasons, buildRisks } from "./scoring/cards.js";
+import { floorPlanSignalsFor } from "./scoring/floorPlan.js";
 
 /**
  * Task 4 — scoring & comparison logic.
@@ -75,13 +76,7 @@ export async function scoreAndRank(state: PipelineState): Promise<PipelineState>
       tourPriority,
       scores,
       costBreakdown: breakdown,
-      floorPlanSignals: {
-        bedroomDimensions: undefined,
-        livingRoomDimensions: undefined,
-        queenBedFit: unit.floorPlanAnalysis ? "likely" : "missing",
-        deskFit: unit.floorPlanAnalysis ? "likely" : "missing",
-        floorPlanConfidence: unit.floorPlanAnalysis?.confidence ?? "low",
-      },
+      floorPlanSignals: floorPlanSignalsFor(unit),
       petSignals: {
         petAllowed: petCompatStatus(facts),
         petRent: numValue(facts?.petRent) ?? undefined,

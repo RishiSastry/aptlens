@@ -40,6 +40,20 @@ export type AnalyzeRequest = {
   preferences: UserPreferences;
 };
 
+/** Building-level amenity signals (optional — populated by richer extraction). */
+export type PropertyAmenities = {
+  gym?: EvidenceField<boolean | null>;
+  pool?: EvidenceField<boolean | null>;
+  rooftop?: EvidenceField<boolean | null>;
+  coworking?: EvidenceField<boolean | null>;
+  lounge?: EvidenceField<boolean | null>;
+  packageRoom?: EvidenceField<boolean | null>;
+  dogWash?: EvidenceField<boolean | null>;
+  dogPark?: EvidenceField<boolean | null>;
+  bikeStorage?: EvidenceField<boolean | null>;
+  evCharging?: EvidenceField<boolean | null>;
+};
+
 export type PropertyFacts = {
   petAllowed: EvidenceField<boolean | null>;
   petRent: EvidenceField<number | null>;
@@ -54,6 +68,20 @@ export type PropertyFacts = {
   applicationFee: EvidenceField<number | null>;
   adminFee: EvidenceField<number | null>;
   securityDeposit: EvidenceField<number | null>;
+
+  // ── Richer signals from extraction (optional; existing fields above stay canonical) ──
+  /** Species-specific pet flags, distinct from the combined `petAllowed`. */
+  dogsAllowed?: EvidenceField<boolean | null>;
+  catsAllowed?: EvidenceField<boolean | null>;
+  maxPets?: EvidenceField<number | null>;
+  petScreening?: EvidenceField<boolean | null>;
+  parkingType?: EvidenceField<string | null>;
+  evCharging?: EvidenceField<boolean | null>;
+  amenities?: PropertyAmenities;
+  /** Property-level facts the extractor flagged as not found / ambiguous / contradictory. */
+  missingCriticalFacts?: string[];
+  conflictingFacts?: string[];
+  notes?: string[];
 };
 
 export type DiscoveredAsset = {
@@ -128,9 +156,28 @@ export type FloorPlanAnalysis = {
     kitchenUsabilityScore: number;
     livingRoomUsabilityScore: number;
     bathroomConvenienceScore: number;
+    /** Combined living/dining score (alias used by some extractors). */
+    livingDiningScore?: number;
   };
   confidence: "high" | "medium" | "low";
   notes: string[];
+
+  // ── Narrative outputs from richer vision analysis (optional) ──
+  insights?: string[];
+  caveats?: string[];
+  /** Things the user should confirm in person during a tour. */
+  tourVerification?: string[];
+};
+
+/** Textual layout signals extracted per unit (each a short evidence-backed note). */
+export type UnitLayoutSignals = {
+  bedroom?: EvidenceField<string | null>;
+  bathroom?: EvidenceField<string | null>;
+  kitchen?: EvidenceField<string | null>;
+  livingDining?: EvidenceField<string | null>;
+  balconyOutdoor?: EvidenceField<string | null>;
+  closetStorage?: EvidenceField<string | null>;
+  wfh?: EvidenceField<string | null>;
 };
 
 export type UnitCandidate = {
@@ -145,6 +192,15 @@ export type UnitCandidate = {
   bathrooms: EvidenceField<number | null>;
   availableDate: EvidenceField<string | null>;
   floorPlanAssets: DiscoveredAsset[];
+
+  // ── Richer unit-level signals from extraction (optional) ──
+  availabilityCount?: EvidenceField<number | null>;
+  leaseTerm?: EvidenceField<string | null>;
+  layoutSignals?: UnitLayoutSignals;
+  /** Unit-level facts the extractor flagged as not found, and free-form notes. */
+  missingFacts?: string[];
+  extractionNotes?: string[];
+
   viability?: "viable" | "maybe_viable_needs_clarification" | "not_viable";
   preVisionScore?: number;
   floorPlanAnalysis?: FloorPlanAnalysis;

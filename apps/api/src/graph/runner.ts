@@ -1,31 +1,16 @@
 import type { AnalyzeRequest, AnalyzeResponse } from "@aptlens/shared";
-import { initState } from "./state.js";
-import { createBoxProject } from "./nodes/createBoxProject.js";
-import { crawlUrls } from "./nodes/crawlUrls.js";
-import { extractFacts } from "./nodes/extractFacts.js";
-import { scoreAndRank } from "./nodes/scoreAndRank.js";
-import { generateTourPlan } from "./nodes/generateTourPlan.js";
-import { buildComparisonViews } from "./nodes/buildComparisonViews.js";
-import { uploadArtifactsToBox } from "./nodes/uploadArtifactsToBox.js";
+import { initState, type PipelineState } from "./state.js";
+import { pipelineGraph } from "./graph.js";
 import { buildReport } from "./nodes/buildReport.js";
 
 /**
- * Sequential pipeline:
- *   Box workspace → Crawl → Extract → Score → Plan → Views → Upload → Report
+ * Run the AptLens pipeline (a LangGraph StateGraph) and assemble the response.
  *
- * Each step is a plain async function. Steps are replaced one-by-one as Tasks
- * implement the real logic. Task 8 migrates this to a LangGraph graph.
+ * Graph stages: Box workspace → Crawl → Extract → Vision → Score → Plan → Views → Upload.
+ * `buildReport` runs after the graph because it returns the API response shape
+ * (AnalyzeResponse) rather than a state update.
  */
 export async function runPipeline(request: AnalyzeRequest): Promise<AnalyzeResponse> {
-  let state = initState(request);
-
-  state = await createBoxProject(state);
-  state = await crawlUrls(state);
-  state = await extractFacts(state);
-  state = await scoreAndRank(state);
-  state = await generateTourPlan(state);
-  state = await buildComparisonViews(state);
-  state = await uploadArtifactsToBox(state);
-
-  return buildReport(state);
+  const finalState = (await pipelineGraph.invoke(initState(request))) as PipelineState;
+  return buildReport(finalState);
 }
