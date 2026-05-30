@@ -48,12 +48,22 @@ Compare:
 - baths
 - availability
 - bedroom dimensions
+- bedroom estimated area range
+- bedroom shape and remaining usable area
 - bathroom type
+- bathroom spaciousness
+- ensuite/shared access
 - closet/storage
+- closet type
+- closet size category
 - kitchen island
 - kitchen size/counter space
+- kitchen prep space
+- kitchen storage
+- two-person cooking suitability
 - balcony/patio
 - living/dining layout
+- living room size category
 - WFH fit
 - floor plan confidence
 - missing unit-specific info
@@ -79,8 +89,13 @@ Example priorities:
 If the user selected larger bedroom, highlight bedroom dimensions, shape, queen-bed fit, and remaining usable space.
 If the user selected larger bathroom, highlight bath count, ensuite/shared access, tub/shower, and double vanity evidence.
 If the user selected better WFH layout, highlight desk fit, separate work areas, bedroom desk fit, and layout separation.
+If the user selected larger kitchen, highlight kitchen layout type, counter/prep space, storage, island/peninsula, and two-person cooking.
+If the user selected more storage, highlight closet type, closet size category, pantry, linen closet, entry closet, and overall storage quality.
+If the user selected larger living room, highlight living/dining size category, open area, long/narrow concerns, and whether sofa/dining/desk zones can coexist.
 
 Do NOT use arbitrary scores.
+Use estimated values from floor plan analysis when they are marked as estimated.
+Do NOT present estimated measurements as confirmed.
 
 ---
 
@@ -142,11 +157,22 @@ Return JSON only.
       "baths": null,
       "availability": "",
       "bedroomDimensions": "",
+      "bedroomEstimatedArea": "",
+      "bedroomShape": "",
+      "bedroomUsability": "",
       "bathroomType": "",
+      "bathroomAccess": "",
+      "bathroomSpaciousness": "",
       "closetStorage": "",
+      "closetType": "",
+      "closetSizeCategory": "",
       "kitchen": "",
+      "kitchenPrepSpace": "",
+      "kitchenStorage": "",
+      "twoPersonCooking": "",
       "balconyPatio": "",
       "livingDining": "",
+      "livingRoomSize": "",
       "wfhFit": "",
       "floorPlanConfidence": "unclear",
       "missingUnitSpecificInfo": [],

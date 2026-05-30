@@ -71,11 +71,12 @@ function UnitTable({
             {!compact && <th>Apartment</th>}
             <th>Unit</th>
             <th>Rent / size</th>
-            <th>Bed / bath</th>
-            <th>Bedroom</th>
-            <th>Kitchen / storage</th>
+            <th>Bed</th>
+            <th>Bath</th>
+            <th>Bedroom fit</th>
+            <th>Kitchen</th>
+            <th>Storage</th>
             <th>WFH</th>
-            <th>Missing</th>
             <th>Evidence</th>
           </tr>
         </thead>
@@ -94,22 +95,29 @@ function UnitTable({
                 <span>{inferSqft(unit)}</span>
               </td>
               <td>
-                {unit.floorPlanSignals.bedroomDimensions ?? "Beds unclear"}
-                <span>{inferBathLabel(unit)}</span>
+                {inferBedLabel(unit)}
+                {isMissing(unit, "bedroom") && <span className="missing-badge">Dimensions missing</span>}
+              </td>
+              <td>
+                {inferBathLabel(unit)}
+                {isMissing(unit, "bath") && <span className="missing-badge">Type missing</span>}
               </td>
               <td>
                 Queen: {titleCase(unit.floorPlanSignals.queenBedFit)}
                 <span>{bedroomInsight(unit)}</span>
               </td>
               <td>
+                {kitchenInsight(unit)}
+                {isMissing(unit, "kitchen") && <span className="missing-badge">Needs confirmation</span>}
+              </td>
+              <td>
                 {storageInsight(unit)}
-                <span>Kitchen details: {kitchenInsight(unit)}</span>
+                {isMissing(unit, "closet") && <span className="missing-badge">Closet type missing</span>}
               </td>
               <td>
                 Desk: {titleCase(unit.floorPlanSignals.deskFit)}
                 <span>{wfhInsight(unit)}</span>
               </td>
-              <td>{unit.missingQuestions.slice(0, 2).join(" ") || "None flagged"}</td>
               <td>
                 <button
                   className="icon-button"
@@ -134,6 +142,20 @@ function groupUnitsByProperty(units: RankedUnitCard[]) {
     groups.set(unit.propertyName, [...(groups.get(unit.propertyName) ?? []), unit]);
   }
   return groups;
+}
+
+function inferBedLabel(unit: RankedUnitCard) {
+  const text = [
+    unit.unitName,
+    unit.floorPlanName,
+    unit.floorPlanSignals.bedroomDimensions,
+    ...unit.evidence.map((item) => item.value),
+  ]
+    .filter(Boolean)
+    .join(" ");
+  if (/studio/i.test(text)) return "Studio";
+  const match = text.match(/(\d)\s*(bed|bedroom|br)/i);
+  return match ? `${match[1]} bed` : "Beds unclear";
 }
 
 function inferSqft(unit: RankedUnitCard) {
@@ -166,4 +188,10 @@ function wfhInsight(unit: RankedUnitCard) {
   if (unit.floorPlanSignals.deskFit === "confirmed") return "Dedicated desk fit evidence";
   if (unit.floorPlanSignals.deskFit === "likely") return "Likely workable";
   return "Needs tour check";
+}
+
+function isMissing(unit: RankedUnitCard, keyword: string) {
+  return unit.missingQuestions.some((question) =>
+    question.toLowerCase().includes(keyword)
+  );
 }

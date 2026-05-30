@@ -1,6 +1,9 @@
+import { useState } from "react";
+import { Eye } from "lucide-react";
 import type { AnalyzeRequest, AnalyzeResponse, RankedUnitCard } from "@aptlens/shared";
 import { titleCase } from "../utils/format";
 import { filterUnitsByPreferences } from "../utils/unitFilters";
+import { EvidenceDrawer } from "./EvidenceDrawer";
 
 type ComparisonTablesProps = {
   result: AnalyzeResponse;
@@ -8,9 +11,9 @@ type ComparisonTablesProps = {
 };
 
 export function ComparisonTables({ result, preferences }: ComparisonTablesProps) {
+  const [selectedUnit, setSelectedUnit] = useState<RankedUnitCard | null>(null);
   const units = filterUnitsByPreferences(result.rankedUnits, preferences);
   const unitsByProperty = groupUnitsByProperty(units);
-  const insights = buildInsights(units, result);
 
   if (units.length === 0) {
     return (
@@ -23,30 +26,23 @@ export function ComparisonTables({ result, preferences }: ComparisonTablesProps)
 
   return (
     <div className="comparison-tables">
-      <section className="insight-panel">
-        <h2>What the comparison shows</h2>
-        <div className="insight-grid">
-          {insights.map((insight) => (
-            <article className="insight-card" key={insight.title}>
-              <strong>{insight.title}</strong>
-              <p>{insight.body}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
       <section className="comparison-section">
         <h2>Apartment comparison</h2>
+        <p className="table-note">
+          Selected amenities and policy claims should be confirmed by evidence. Open the eye
+          icon to see why each apartment is a stronger or weaker match.
+        </p>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
                 <th>Apartment</th>
-                <th>Pet / parking</th>
+                <th>Pet</th>
+                <th>Parking</th>
                 <th>Amenities signal</th>
-                <th>Known extra fees</th>
-                <th>Missing critical info</th>
-                <th>Insight</th>
+                <th>Extra fees</th>
+                <th>Preference fit</th>
+                <th>Evidence</th>
               </tr>
             </thead>
             <tbody>
@@ -54,27 +50,49 @@ export function ComparisonTables({ result, preferences }: ComparisonTablesProps)
                 <tr key={propertyName}>
                   <td>{propertyName}</td>
                   <td>
-                    Pet: {titleCase(propertyUnits[0]?.petSignals.petAllowed ?? "unclear")}
-                    <span>Parking fee: {missingLabel(propertyUnits, "parking")}</span>
+                    {titleCase(propertyUnits[0]?.petSignals.petAllowed ?? "unclear")}
+                    {hasMissing(propertyUnits, "pet") && <span className="missing-badge">Missing fee or rules</span>}
                   </td>
                   <td>
-                    Evidence mentions property amenities
-                    <span>Confirm coworking, package room, dog wash, EV charging</span>
+                    {hasMissing(propertyUnits, "parking") ? (
+                      <span className="missing-badge">Parking fee missing</span>
+                    ) : (
+                      "Not flagged"
+                    )}
                   </td>
-                  <td>{missingLabel(propertyUnits, "fee")}</td>
                   <td>
-                    {propertyUnits
-                      .flatMap((unit) => unit.missingQuestions)
-                      .slice(0, 2)
-                      .join(" ") || "No blocking questions"}
+                    {amenityFit(preferences)}
                   </td>
-                  <td>{propertyUnits[0]?.topReasons[0] ?? "Needs more evidence"}</td>
+                  <td>
+                    {missingLabel(propertyUnits, "fee")}
+                    {missingLabel(propertyUnits, "utilities") !== "Not flagged" && (
+                      <span className="missing-badge">Utilities missing</span>
+                    )}
+                  </td>
+                  <td>
+                    <span className={`match-badge ${preferenceMatchLevel(propertyUnits, preferences)}`}>
+                      {preferenceMatchLabel(propertyUnits, preferences)}
+                    </span>
+                    <span>{preferenceMatchSummary(propertyUnits, preferences)}</span>
+                  </td>
+                  <td>
+                    <button
+                      className="icon-button"
+                      type="button"
+                      onClick={() => setSelectedUnit(propertyUnits[0] ?? null)}
+                      aria-label={`View evidence for ${propertyName}`}
+                    >
+                      <Eye size={18} />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </section>
+
+      <EvidenceDrawer unit={selectedUnit} onClose={() => setSelectedUnit(null)} />
     </div>
   );
 }
@@ -87,44 +105,78 @@ function groupUnitsByProperty(units: RankedUnitCard[]) {
   return groups;
 }
 
-function buildInsights(units: RankedUnitCard[], result: AnalyzeResponse) {
-  const unknownCostCount = units.filter((unit) => !unit.trueMonthlyCostKnown).length;
-  const overBudget = units.filter((unit) => unit.budgetStatus === "over_budget");
-  const askFirst = result.tourPlan.askBeforeTouring.length;
-
-  return [
-    {
-      title: "Cost clarity",
-      body:
-        unknownCostCount > 0
-          ? `${unknownCostCount} units still need rent or fee confirmation before true monthly cost is reliable.`
-          : "Every compared unit has a known monthly cost baseline.",
-    },
-    {
-      title: "Property vs. unit evidence",
-      body:
-        "This tab only compares property-level policy, fees, and amenities. Floor-plan fit lives in Unit Comparison.",
-    },
-    {
-      title: "Before spending tour time",
-      body:
-        askFirst > 0
-          ? `${askFirst} apartments should be emailed first because pet, parking, rent, or layout evidence is incomplete.`
-          : "No apartment is currently blocked by missing information.",
-    },
-    {
-      title: "Budget boundary",
-      body:
-        overBudget.length > 0
-          ? `${overBudget.map((unit) => unit.unitName).join(", ")} exceed the target budget before unknown fees.`
-          : "No compared unit is clearly over budget from known rent alone.",
-    },
-  ];
-}
-
 function missingLabel(units: RankedUnitCard[], keyword: string) {
   const matches = units.flatMap((unit) =>
     unit.costBreakdown.unknownCostFields.filter((field) => field.includes(keyword))
   );
   return matches.length > 0 ? Array.from(new Set(matches)).join(", ") : "Not flagged";
+}
+
+function hasMissing(units: RankedUnitCard[], keyword: string) {
+  return units.some((unit) =>
+    [...unit.costBreakdown.unknownCostFields, ...unit.missingQuestions].some((field) =>
+      field.toLowerCase().includes(keyword)
+    )
+  );
+}
+
+function amenityFit(preferences?: AnalyzeRequest["preferences"]) {
+  const selected = preferences?.amenityPreferences;
+  if (!selected) return "Preferences not selected";
+  const labels = [
+    selected.grill && "grill",
+    selected.pool && "pool",
+    selected.coworking && "coworking",
+    selected.packageRoom && "package room",
+    selected.dogWash && "dog wash",
+    selected.evCharging && "EV charging",
+  ].filter(Boolean);
+  return labels.length > 0 ? `Check: ${labels.join(", ")}` : "No amenity priority selected";
+}
+
+function preferenceMatchLevel(
+  units: RankedUnitCard[],
+  preferences?: AnalyzeRequest["preferences"]
+) {
+  const hardIssues = [
+    preferences?.pet.hasPet && units[0]?.petSignals.petAllowed === "unclear",
+    preferences?.parking === "required" && hasMissing(units, "parking"),
+  ].filter(Boolean).length;
+  const strongSignals = [
+    preferences?.lifestylePreferences?.worksFromHome &&
+      units.some((unit) => unit.scores.wfhFit >= 80),
+    preferences?.spacePreferences?.moreStorage &&
+      units.some((unit) => unit.scores.storage >= 80),
+  ].filter(Boolean).length;
+
+  if (hardIssues === 0 && strongSignals > 0) return "strong";
+  if (hardIssues <= 1) return "medium";
+  return "weak";
+}
+
+function preferenceMatchLabel(
+  units: RankedUnitCard[],
+  preferences?: AnalyzeRequest["preferences"]
+) {
+  const level = preferenceMatchLevel(units, preferences);
+  if (level === "strong") return "Strong match";
+  if (level === "medium") return "Medium match";
+  return "Weak match";
+}
+
+function preferenceMatchSummary(
+  units: RankedUnitCard[],
+  preferences?: AnalyzeRequest["preferences"]
+) {
+  const signals: string[] = [];
+  if (preferences?.pet.hasPet) {
+    signals.push(`Pet ${titleCase(units[0]?.petSignals.petAllowed ?? "unclear")}`);
+  }
+  if (preferences?.parking === "required") {
+    signals.push(hasMissing(units, "parking") ? "parking unclear" : "parking not flagged");
+  }
+  if (preferences?.lifestylePreferences?.worksFromHome) {
+    signals.push(units.some((unit) => unit.scores.wfhFit >= 80) ? "WFH units found" : "WFH unclear");
+  }
+  return signals.slice(0, 2).join(" · ") || "Open evidence for detail";
 }
